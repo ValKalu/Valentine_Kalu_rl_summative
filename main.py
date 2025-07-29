@@ -1,4 +1,6 @@
-#!/usr/bin/env python3
+# main.py
+#!/usr/bin/env python3 # Shebang for direct execution
+
 import gymnasium as gym
 import os
 import datetime
@@ -14,7 +16,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 # Import your custom environment
-from environment.custom_env import TalentForgeConnectEnv
+from environment.custom_env import CreativeMindAcademyEnv
 from environment.rendering import get_action_name # For cleaner action display in GIFs/videos
 
 # --- Configuration ---
@@ -259,12 +261,12 @@ def plot_results(log_folder, title='Learning Curve'):
 
 
 if __name__ == "__main__":
-    print("Welcome to TalentForge Connect RL Project!")
+    print("Welcome to CreativeMind Academy RL Project!")
 
     # --- Task 1: Generate Static Visualization (GIF of random actions) ---
     # This GIF demonstrates your environment's visualization without any trained model.
-    random_gif_path = os.path.join(GIF_OUTPUT_DIR, "talentforge_random_actions.gif")
-    generate_random_action_visualization(TalentForgeConnectEnv, num_steps=300, output_path=random_gif_path)
+    random_gif_path = os.path.join(GIF_OUTPUT_DIR, "creativemind_random_actions.gif")
+    generate_random_action_visualization(CreativeMindAcademyEnv, num_steps=300, output_path=random_gif_path)
     print(f"\n**Action Required:** Remember to add '{random_gif_path}' to your report.")
 
     # --- Task 2: Train Agents ---
@@ -275,22 +277,22 @@ if __name__ == "__main__":
 
     # Example: Train DQN Agent
     # print("\n--- Training DQN Agent ---")
-    # train_agent("DQN", TalentForgeConnectEnv, total_timesteps=200_000, reward_threshold=1000.0)
+    # train_agent("DQN", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=1000.0)
     # plot_results(os.path.join(LOGS_DIR_BASE, "dqn"), "DQN Learning Curve")
 
     # Example: Train PPO Agent (Uncomment to run)
     # print("\n--- Training PPO Agent ---")
-    # train_agent("PPO", TalentForgeConnectEnv, total_timesteps=200_000, reward_threshold=1500.0)
+    # train_agent("PPO", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=1500.0)
     # plot_results(os.path.join(LOGS_DIR_BASE, "ppo"), "PPO Learning Curve")
 
     # Example: Train A2C Agent (Uncomment to run)
     # print("\n--- Training A2C Agent ---")
-    # train_agent("A2C", TalentForgeConnectEnv, total_timesteps=200_000, reward_threshold=800.0)
+    # train_agent("A2C", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=800.0)
     # plot_results(os.path.join(LOGS_DIR_BASE, "a2c"), "A2C Learning Curve")
 
     # Example: Train REINFORCE-like Agent (using A2C with n_steps=1) (Uncomment to run)
     # print("\n--- Training REINFORCE-like Agent ---")
-    # train_agent("REINFORCE", TalentForgeConnectEnv, total_timesteps=200_000, reward_threshold=700.0)
+    # train_agent("REINFORCE", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=700.0)
     # plot_results(os.path.join(LOGS_DIR_BASE, "reinforce"), "REINFORCE Learning Curve")
 
 
@@ -304,7 +306,7 @@ if __name__ == "__main__":
     best_dqn_model_path = os.path.join(dqn_models_path, "best_model.zip") # Default name from EvalCallback
     
     if os.path.exists(best_dqn_model_path):
-       evaluate_and_record_agent(best_dqn_model_path, TalentForgeConnectEnv, n_episodes=3, output_filename="dqn_agent_performance.mp4")
+       evaluate_and_record_agent(best_dqn_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="dqn_agent_performance.mp4")
     else:
        print(f"\nNo DQN best model found at {best_dqn_model_path}. Please train it first by uncommenting the train_agent('DQN', ...) line.")
 
@@ -312,7 +314,7 @@ if __name__ == "__main__":
     # ppo_models_path = os.path.join(MODELS_DIR_BASE, "ppo")
     # best_ppo_model_path = os.path.join(ppo_models_path, "best_model.zip")
     # if os.path.exists(best_ppo_model_path):
-    #     evaluate_and_record_agent(best_ppo_model_path, TalentForgeConnectEnv, n_episodes=3, output_filename="ppo_agent_performance.mp4")
+    #     evaluate_and_record_agent(best_ppo_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="ppo_agent_performance.mp4")
     # else:
     #     print(f"\nNo PPO best model found at {ppo_models_path}. Please train it first.")
 
@@ -320,14 +322,14 @@ if __name__ == "__main__":
     # a2c_models_path = os.path.join(MODELS_DIR_BASE, "a2c")
     # best_a2c_model_path = os.path.join(a2c_models_path, "best_model.zip")
     # if os.path.exists(best_a2c_model_path):
-    #     evaluate_and_record_agent(best_a2c_model_path, TalentForgeConnectEnv, n_episodes=3, output_filename="a2c_agent_performance.mp4")
+    #     evaluate_and_record_agent(best_a2c_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="a2c_agent_performance.mp4")
     # else:
     #     print(f"\nNo A2C best model found at {a2c_models_path}. Please train it first.")
 
     # reinforce_models_path = os.path.join(MODELS_DIR_BASE, "reinforce")
     # best_reinforce_model_path = os.path.join(reinforce_models_path, "best_model.zip")
     # if os.path.exists(best_reinforce_model_path):
-    #     evaluate_and_record_agent(best_reinforce_model_path, TalentForgeConnectEnv, n_episodes=3, output_filename="reinforce_agent_performance.mp4")
+    #     evaluate_and_record_agent(best_reinforce_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="reinforce_agent_performance.mp4")
     # else:
     #     print(f"\nNo REINFORCE best model found at {reinforce_models_path}. Please train it first.")
 
