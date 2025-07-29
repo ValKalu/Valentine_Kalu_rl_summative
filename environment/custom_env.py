@@ -56,9 +56,10 @@ class CreativeMindAcademyEnv(gym.Env):
         self.incorrect_answers = 0
         self.current_question_difficulty = 0.5 # Default difficulty
         self.time_step = 0
-        self.max_steps = 500 # Max steps per episode (e.g., 500 interactions)
-        self.max_incorrect_streak = 5 # Max consecutive incorrect answers before termination
+        self.max_steps = 750 # Increased max steps for longer learning sessions
+        self.max_incorrect_streak = 7 # Max consecutive incorrect answers before frustration
         self.incorrect_streak = 0
+        self.frustration_penalty_applied = False # Flag to apply penalty only once
 
         # Rendering setup
         self.render_mode = render_mode
@@ -85,18 +86,45 @@ class CreativeMindAcademyEnv(gym.Env):
             "current_step": self.time_step,
             "total_score": self.total_episode_score,
             "correct_answers": self.correct_answers,
-            "incorrect_answers": self.incorrect_answers
+            "incorrect_answers": self.incorrect_answers,
+            "incorrect_streak": self.incorrect_streak
         }
 
     def _generate_question(self):
-        """Generates a new question with difficulty based on current module knowledge."""
+        """
+        Generates a new question with difficulty based on current module knowledge,
+        with some randomness and a chance to switch domains for balanced learning.
+        """
         current_domain = self.DOMAIN_NAMES[self.current_module_idx]
         current_knowledge = self.knowledge_levels[current_domain]
 
-        # Difficulty tends to increase as knowledge in the module grows
-        # But also introduce some randomness
-        base_difficulty = current_knowledge / 100.0 # 0.0 (easy) to 1.0 (hard)
-        self.current_question_difficulty = max(0.0, min(1.0, base_difficulty + random.uniform(-0.2, 0.2)))
+        # AMENDMENT: Adaptive Difficulty Generation
+        # 80% chance to generate question for current module, 20% to generate for lowest knowledge module
+        if random.random() < 0.2:
+            # Find the domain with the lowest knowledge to encourage balanced learning
+            lowest_knowledge_domain = min(self.knowledge_levels, key=self.knowledge_levels.get)
+            self.current_module_idx = self.DOMAIN_NAMES.index(lowest_knowledge_domain)
+            current_domain = lowest_knowledge_domain
+            current_knowledge = self.knowledge_levels[current_domain]
+            # print(f"Agent switched to lowest knowledge domain: {current_domain}") # For debugging
+
+        # Base difficulty tends to be around the current knowledge level, normalized to 0-1
+        # Add a random component to simulate varying question pools (some easier, some harder)
+        target_difficulty = current_knowledge / 100.0
+        self.current_question_difficulty = max(0.0, min(1.0, target_difficulty + random.uniform(-0.3, 0.3)))
+
+        # Ensure difficulty is not too easy if knowledge is high, or too hard if knowledge is low
+        if current_knowledge < 20: # If knowledge is low, ensure questions are mostly easy
+            self.current_question_difficulty = min(0.4, self.current_question_difficulty)
+        elif current_knowledge > 80: # If knowledge is high, ensure questions are mostly hard
+            self.current_question_difficulty = max(0.6, self.current_question_difficulty)
+        
+        # Add a small chance for a very easy or very hard question regardless of knowledge
+        if random.random() < 0.05: # 5% chance for a very easy review question
+            self.current_question_difficulty = random.uniform(0.0, 0.2)
+        elif random.random() > 0.95: # 5% chance for a very hard challenge question
+            self.current_question_difficulty = random.uniform(0.8, 1.0)
+
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -111,6 +139,7 @@ class CreativeMindAcademyEnv(gym.Env):
         self.time_step = 0
         self.total_episode_score = 0.0
         self.incorrect_streak = 0
+        self.frustration_penalty_applied = False # Reset flag
         self._generate_question() # Generate the first question
 
         observation = self._get_obs()
@@ -136,63 +165,103 @@ class CreativeMindAcademyEnv(gym.Env):
         if action_name.startswith("select_module_"):
             new_module_name = action_name.replace("select_module_", "")
             new_module_idx = self.DOMAIN_NAMES.index(new_module_name)
+            
+            # AMENDMENT: Reward for switching modules
+            # Small bonus for switching, slightly higher if switching to a lower-knowledge domain
+            if new_module_idx != self.current_module_idx:
+                reward += 0.5
+                if self.knowledge_levels[new_module_name] < current_knowledge - 10: # Switching to a significantly weaker area
+                    reward += 0.5 # Extra bonus for addressing weaknesses
+            else: # Selecting current module again, minimal reward
+                reward += 0.1
+
             self.current_module_idx = new_module_idx
             self._generate_question() # Generate a new question for the selected module
-            reward += 0.5 # Small reward for changing modules (exploration)
             self.incorrect_streak = 0 # Reset streak on module change
 
         elif action_name == "attempt_answer":
+            # AMENDMENT: Refined Success Chance Model
             # Probability of correct answer depends on knowledge vs. difficulty
             # Knowledge is 0-100, Difficulty is 0-1.0
-            # A simple model: if knowledge is higher than (difficulty * 100), better chance
-            success_chance = max(0.05, min(0.95, (current_knowledge - (self.current_question_difficulty * 100.0) + 50) / 100.0))
+            # Linear scaling: 0.0 knowledge, 1.0 difficulty -> 5% chance
+            # 100.0 knowledge, 0.0 difficulty -> 95% chance
+            # Formula: base_chance + (knowledge_advantage / 100) * (max_chance - base_chance)
+            # knowledge_advantage = (current_knowledge - (self.current_question_difficulty * 100))
+            
+            # Simplified sigmoid-like behavior for probability
+            # Higher knowledge relative to difficulty gives higher chance
+            # A 50 point knowledge advantage over difficulty gives ~50% chance
+            # Max 95%, Min 5%
+            knowledge_advantage = current_knowledge - (self.current_question_difficulty * 100)
+            success_chance = 0.5 + (knowledge_advantage / 200.0) # Scale to -0.5 to 0.5 range
+            success_chance = max(0.05, min(0.95, success_chance)) # Clamp between 5% and 95%
             
             if random.random() < success_chance:
                 # Correct Answer!
                 self.correct_answers += 1
-                reward += 10.0 # High positive reward
-                self.knowledge_levels[current_domain_name] = min(100.0, current_knowledge + random.uniform(1.0, 3.0) * (1.0 + self.current_question_difficulty)) # More knowledge gain for harder questions
+                # AMENDMENT: Reward scaled by difficulty (harder questions = more points)
+                reward += 10.0 * (1.0 + self.current_question_difficulty * 0.5) # Base 10, up to 15 for hard Q
+                
+                # AMENDMENT: Knowledge gain scaled by difficulty and knowledge gap
+                knowledge_gain = random.uniform(1.0, 3.0) * (1.0 + self.current_question_difficulty)
+                # More gain if knowledge is low in this domain
+                knowledge_gain *= (1.0 + (100.0 - current_knowledge) / 200.0) # Up to 50% more gain for low knowledge
+                self.knowledge_levels[current_domain_name] = min(100.0, current_knowledge + knowledge_gain)
+                
                 self.incorrect_streak = 0 # Reset streak
-                # Generate a new question for the same module
-                self._generate_question() 
+                self._generate_question() # Generate a new question for the same module
             else:
                 # Incorrect Answer
                 self.incorrect_answers += 1
-                reward -= 5.0 # Penalty for incorrect answer
-                self.knowledge_levels[current_domain_name] = max(0.0, current_knowledge - random.uniform(0.5, 1.5)) # Small knowledge decay
+                # AMENDMENT: Penalty scaled by difficulty (easier Q wrong = more penalty)
+                reward -= 5.0 * (1.0 + (1.0 - self.current_question_difficulty) * 0.5) # Base 5, up to 7.5 for easy Q wrong
+                
+                # AMENDMENT: Small knowledge decay
+                self.knowledge_levels[current_domain_name] = max(0.0, current_knowledge - random.uniform(0.5, 1.5))
                 self.incorrect_streak += 1 # Increment streak
-                # Generate a new question for the same module
-                self._generate_question()
+                self._generate_question() # Generate a new question for the same module
 
         elif action_name == "study_current_module":
-            # Agent spends time studying, increasing knowledge but no immediate points
-            self.knowledge_levels[current_domain_name] = min(100.0, current_knowledge + random.uniform(0.5, 2.0))
-            reward += 2.0 # Small positive reward for studying
+            # Agent spends time studying, increasing knowledge but no immediate question points
+            # AMENDMENT: Knowledge gain from studying is more effective at lower knowledge levels
+            study_gain = random.uniform(0.8, 2.5) * (1.0 + (100.0 - current_knowledge) / 100.0) # More gain if knowledge is low
+            self.knowledge_levels[current_domain_name] = min(100.0, current_knowledge + study_gain)
+            
+            # AMENDMENT: Small cross-domain knowledge transfer
+            for domain in self.DOMAIN_NAMES:
+                if domain != current_domain_name:
+                    self.knowledge_levels[domain] = min(100.0, self.knowledge_levels[domain] + random.uniform(0.0, 0.2))
+
+            # AMENDMENT: Reward for studying
+            reward += 2.0 + (study_gain * 0.1) # Reward scales slightly with actual gain
             self.incorrect_streak = 0 # Studying is a valid action, resets streak
 
         # --- Termination Conditions ---
         # 1. Max steps reached
         if self.time_step >= self.max_steps:
             done = True
-            print(f"Episode terminated: Max steps reached. Final Score: {self.total_episode_score:.2f}")
+            # print(f"Episode terminated: Max steps reached. Final Score: {self.total_episode_score:.2f}")
             # Bonus/penalty based on overall performance
-            if self.total_episode_score > 500:
-                reward += 100
+            if self.total_episode_score > 500: # AMENDMENT: Adjusted thresholds
+                reward += 150 # Higher bonus
             elif self.total_episode_score < 0:
-                reward -= 50
+                reward -= 75
 
         # 2. All domains mastered (e.g., avg knowledge > 90%)
         avg_knowledge = sum(self.knowledge_levels.values()) / len(self.DOMAIN_NAMES)
-        if avg_knowledge >= 90.0 and self.correct_answers >= 50: # Also need a minimum number of correct answers
+        # AMENDMENT: Requires higher average knowledge AND a minimum number of correct answers for mastery
+        if avg_knowledge >= 95.0 and self.correct_answers >= 75: 
             done = True
-            reward += 500.0 # Big bonus for mastering
-            print(f"Episode terminated: All domains mastered! Final Score: {self.total_episode_score:.2f}")
+            reward += 750.0 # Big bonus for mastering
+            # print(f"Episode terminated: All domains mastered! Final Score: {self.total_episode_score:.2f}")
 
-        # 3. Too many consecutive incorrect answers
+        # 3. Too many consecutive incorrect answers (Frustration)
         elif self.incorrect_streak >= self.max_incorrect_streak:
             done = True
-            reward -= 100.0 # Significant penalty for giving up
-            print(f"Episode terminated: Too many incorrect answers in a row. Final Score: {self.total_episode_score:.2f}")
+            if not self.frustration_penalty_applied: # Apply penalty only once
+                reward -= 150.0 # Significant penalty for giving up due to frustration
+                self.frustration_penalty_applied = True
+            # print(f"Episode terminated: Too many incorrect answers in a row. Final Score: {self.total_episode_score:.2f}")
 
         # Store last reward for rendering and accumulate total score
         self.last_reward_value = reward
@@ -222,9 +291,6 @@ class CreativeMindAcademyEnv(gym.Env):
 
 # Example usage for testing the environment
 if __name__ == "__main__":
-    # Add the shebang line if you intend to run this file directly like ./custom_env.py
-    # #!/usr/bin/env python3
-
     # To run this, navigate to the project root directory (student_name_rl_summative)
     # and execute: python -m environment.custom_env
     
@@ -238,7 +304,7 @@ if __name__ == "__main__":
     total_reward = 0
 
     # Test with random actions
-    for _ in range(500): # Run for 500 steps to see interaction
+    for _ in range(750): # Increased test steps to match max_steps
         action = env.action_space.sample() # Take a random action
         obs, reward, terminated, truncated, info = env.step(action)
         total_reward += reward
@@ -246,7 +312,7 @@ if __name__ == "__main__":
         # Print flattened observations for readability
         obs_flat = {k: v.flatten() if isinstance(v, np.ndarray) else v for k, v in obs.items()}
         print(f"Step {env.time_step}: Action: {env.reverse_action_map[action]}, Reward: {reward:.2f}, Total Score: {env.total_episode_score:.2f}, Done: {terminated or truncated}")
-        print(f"  Knowledge (MB): {obs_flat['knowledge_music_business'][0]:.1f}%, Correct: {obs_flat['questions_answered_correctly'][0]}, Incorrect: {obs_flat['questions_answered_incorrectly'][0]}")
+        print(f"  Knowledge (MB): {obs_flat['knowledge_music_business'][0]:.1f}%, Correct: {obs_flat['questions_answered_correctly'][0]}, Incorrect: {obs_flat['questions_answered_incorrectly'][0]}, Streak: {info['incorrect_streak']}")
 
         if terminated or truncated:
             print(f"Episode finished at step {env.time_step}. Final Total Score: {env.total_episode_score:.2f}")

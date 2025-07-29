@@ -169,12 +169,10 @@ def train_agent(model_type, env_class, total_timesteps=1_000_000, reward_thresho
                     callback=eval_callback,
                     log_interval=10) # Log training progress every 10 updates
         print(f"{model_type} training finished.")
-    except StopTrainingOnRewardThreshold:
-        print(f"Training for {model_type} stopped due to reward threshold being met.")
-    except KeyboardInterrupt:
+    except KeyboardInterrupt: # Only catch KeyboardInterrupt for manual stopping
         print(f"Training for {model_type} interrupted by user.")
-
-    # Save the final model
+        
+    # Save the final model (this happens even if interrupted or threshold met)
     timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     final_model_path = os.path.join(models_dir, f"{model_name}_final_model_{timestamp}")
     model.save(final_model_path)
@@ -270,66 +268,66 @@ if __name__ == "__main__":
     print(f"\n**Action Required:** Remember to add '{random_gif_path}' to your report.")
 
     # --- Task 2: Train Agents ---
-    # Uncomment and run these one by one.
+    # IMPORTANT: Train these agents ONE BY ONE.
+    # Uncomment one block, run main.py, let it finish, then comment it out and move to the next.
     # Adjust `total_timesteps` and `reward_threshold` based on your environment's complexity
     # and desired performance.
     # To monitor training: open a new terminal in your project root and run `tensorboard --logdir logs`
 
-    # Example: Train DQN Agent
-    # print("\n--- Training DQN Agent ---")
-    # train_agent("DQN", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=1000.0)
-    # plot_results(os.path.join(LOGS_DIR_BASE, "dqn"), "DQN Learning Curve")
+    # Train DQN Agent
+    print("\n--- Training DQN Agent ---")
+    train_agent("DQN", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=9000.0)
+    plot_results(os.path.join(LOGS_DIR_BASE, "dqn"), "DQN Learning Curve")
 
-    # Example: Train PPO Agent (Uncomment to run)
+    # Train PPO Agent
     # print("\n--- Training PPO Agent ---")
     # train_agent("PPO", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=1500.0)
     # plot_results(os.path.join(LOGS_DIR_BASE, "ppo"), "PPO Learning Curve")
 
-    # Example: Train A2C Agent (Uncomment to run)
+    # Train A2C Agent
     # print("\n--- Training A2C Agent ---")
     # train_agent("A2C", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=800.0)
     # plot_results(os.path.join(LOGS_DIR_BASE, "a2c"), "A2C Learning Curve")
 
-    # Example: Train REINFORCE-like Agent (using A2C with n_steps=1) (Uncomment to run)
+    # Train REINFORCE-like Agent (using A2C with n_steps=1)
     # print("\n--- Training REINFORCE-like Agent ---")
     # train_agent("REINFORCE", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=700.0)
     # plot_results(os.path.join(LOGS_DIR_BASE, "reinforce"), "REINFORCE Learning Curve")
 
 
     # --- Task 3: Evaluate and Record Trained Agents ---
-    # AFTER you have trained models and they are saved in models/dqn, models/ppo, etc.
-    # The EvalCallback usually saves a 'best_model.zip' in the models/ALGORITHM_NAME directory.
-    # You might need to manually verify the path if you save models with different names.
+    # Run this section AFTER all desired agents have been trained and saved.
+    # Uncomment ALL the evaluation blocks below to generate videos for all trained models.
 
-    # Example: Evaluate and record DQN agent
+    # Evaluate and record DQN agent
     dqn_models_path = os.path.join(MODELS_DIR_BASE, "dqn")
     best_dqn_model_path = os.path.join(dqn_models_path, "best_model.zip") # Default name from EvalCallback
     
     if os.path.exists(best_dqn_model_path):
        evaluate_and_record_agent(best_dqn_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="dqn_agent_performance.mp4")
     else:
-       print(f"\nNo DQN best model found at {best_dqn_model_path}. Please train it first by uncommenting the train_agent('DQN', ...) line.")
+       print(f"\nNo DQN best model found at {best_dqn_model_path}. Please train it first by uncommenting its train_agent(...) line.")
 
-    # Example: Evaluate and record PPO agent (Uncomment to run)
+    # Evaluate and record PPO agent
     # ppo_models_path = os.path.join(MODELS_DIR_BASE, "ppo")
     # best_ppo_model_path = os.path.join(ppo_models_path, "best_model.zip")
     # if os.path.exists(best_ppo_model_path):
     #     evaluate_and_record_agent(best_ppo_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="ppo_agent_performance.mp4")
     # else:
-    #     print(f"\nNo PPO best model found at {ppo_models_path}. Please train it first.")
+    #     print(f"\nNo PPO best model found at {ppo_models_path}. Please train it first by uncommenting its train_agent(...) line.")
 
-    # Repeat for A2C and REINFORCE (using A2C)
+    # Evaluate and record A2C agent
     # a2c_models_path = os.path.join(MODELS_DIR_BASE, "a2c")
     # best_a2c_model_path = os.path.join(a2c_models_path, "best_model.zip")
     # if os.path.exists(best_a2c_model_path):
     #     evaluate_and_record_agent(best_a2c_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="a2c_agent_performance.mp4")
     # else:
-    #     print(f"\nNo A2C best model found at {a2c_models_path}. Please train it first.")
+    #     print(f"\nNo A2C best model found at {a2c_models_path}. Please train it first by uncommenting its train_agent(...) line.")
 
+    # Evaluate and record REINFORCE-like Agent (using A2C)
     # reinforce_models_path = os.path.join(MODELS_DIR_BASE, "reinforce")
     # best_reinforce_model_path = os.path.join(reinforce_models_path, "best_model.zip")
     # if os.path.exists(best_reinforce_model_path):
     #     evaluate_and_record_agent(best_reinforce_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="reinforce_agent_performance.mp4")
     # else:
-    #     print(f"\nNo REINFORCE best model found at {reinforce_models_path}. Please train it first.")
-
+    #     print(f"\nNo REINFORCE best model found at {reinforce_models_path}. Please train it first by uncommenting its train_agent(...) line.")
