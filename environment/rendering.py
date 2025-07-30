@@ -19,7 +19,10 @@ PROGRESS_BAR_BG = (70, 70, 70)
 
 class CreativeMindRenderer:
     def __init__(self, domain_names, action_map, render_fps=60):
-        pygame.init()
+        # --- CRITICAL LINE: Set SDL_VIDEODRIVER to 'dummy' for headless environments ---
+        os.environ["SDL_VIDEODRIVER"] = "dummy" 
+        pygame.init() # pygame.init() MUST come AFTER setting the environment variable
+        
         self.window_width = 1200
         self.window_height = 800
         self.screen = pygame.display.set_mode((self.window_width, self.window_height))
@@ -77,6 +80,11 @@ class CreativeMindRenderer:
 
     def render(self, observation, last_action_idx=None, reward_value=None, total_score=0.0, episode_step=0):
         self.screen.fill(DARK_GREY) # Background
+
+        # --- DEBUG VISUAL ELEMENT: A simple red square to ensure drawing is working ---
+        pygame.draw.rect(self.screen, RED, (self.window_width // 2 - 25, self.window_height // 2 - 25, 50, 50))
+        # --- END DEBUG ELEMENT ---
+
 
         # --- Knowledge Panel ---
         knowledge_panel_x = 20
@@ -167,7 +175,9 @@ class CreativeMindRenderer:
 
     def screen_to_rgb_array(self):
         """Converts the current pygame screen to an RGB numpy array."""
-        return np.transpose(np.array(pygame.surfarray.pixels3d(self.screen)), (1, 0, 2))
+        # Use pygame.surfarray.array3d for direct pixel access
+        # The array needs to be transposed for imageio to interpret correctly (width, height, channels)
+        return np.transpose(pygame.surfarray.array3d(self.screen), (1, 0, 2))
 
     def close(self):
         pygame.quit()

@@ -47,20 +47,31 @@ def generate_random_action_visualization(env_class, num_steps=300, output_path=N
     obs, info = env.reset()
     frames = []
     
-    # Get action map from environment instance
+    # Initialize variables for rendering
+    last_action = None
+    last_reward = 0.0
+    total_score = 0.0
+    
+    # Get action map from environment instance (for display purposes)
     action_map = env.ACTION_MAP 
 
-    for step in range(num_steps):
+    for step_count in range(num_steps): # Renamed loop variable to avoid conflict with `env.step`'s `step`
         action = env.action_space.sample() # Take a random action
         obs, reward, terminated, truncated, info = env.step(action)
         
+        # Update variables for rendering
+        last_action = action
+        last_reward = reward
+        total_score += reward # Accumulate total score
+        
         # Capture the frame after the step and rendering logic within env.step
-        frame = env.render() 
+        # Pass all relevant state information to the environment's render method
+        frame = env.render(last_action=last_action, last_reward=last_reward, total_score=total_score, episode_step=step_count) 
         if frame is not None:
             frames.append(frame)
 
         if terminated or truncated:
-            print(f"Random action visualization stopped at step {step} due to episode termination.")
+            print(f"Random action visualization stopped at step {step_count} due to episode termination.")
             break
     
     env.close()
@@ -208,23 +219,30 @@ def evaluate_and_record_agent(model_path, env_class, n_episodes=3, fps=30, outpu
 
     video_writer = imageio.get_writer(os.path.join(VIDEO_OUTPUT_DIR, output_filename), fps=fps)
 
-    action_map = env.ACTION_MAP # Get action map from env for display
+    # Get action map from env for display
+    action_map = env.ACTION_MAP 
 
     for i in range(n_episodes):
         obs, info = env.reset()
         done = False
         truncated = False
         episode_reward = 0
-        step_count = 0
+        step_count = 0 # Initialize step_count for each episode
         print(f"--- Starting Episode {i+1} ---")
 
         while not done and not truncated:
             action, _states = model.predict(obs, deterministic=True) # Use deterministic policy for evaluation
+            
+            # FIX: Ensure action is a scalar integer for env.step()
+            if isinstance(action, np.ndarray):
+                action = action.item() # Extracts the scalar value from a 0-d or 1-d array
+
             obs, reward, done, truncated, info = env.step(action)
             episode_reward += reward
             step_count += 1
 
-            frame = env.render() # Your env.render() should return the numpy array frame
+            # Pass all relevant state information to the environment's render method
+            frame = env.render(last_action=action, last_reward=reward, total_score=episode_reward, episode_step=step_count) 
             if frame is not None:
                 video_writer.append_data(frame)
 
@@ -274,22 +292,22 @@ if __name__ == "__main__":
     # and desired performance.
     # To monitor training: open a new terminal in your project root and run `tensorboard --logdir logs`
 
-    # Train DQN Agent
-    print("\n--- Training DQN Agent ---")
-    train_agent("DQN", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=9000.0)
-    plot_results(os.path.join(LOGS_DIR_BASE, "dqn"), "DQN Learning Curve")
+    # Train DQN Agent (COMMENTED OUT - ASSUMING TRAINING IS COMPLETE)
+    # print("\n--- Training DQN Agent ---")
+    # train_agent("DQN", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=2000.0) # Adjusted threshold
+    # plot_results(os.path.join(LOGS_DIR_BASE, "dqn"), "DQN Learning Curve")
 
-    # Train PPO Agent
+    # Train PPO Agent (COMMENTED OUT BY DEFAULT)
     # print("\n--- Training PPO Agent ---")
     # train_agent("PPO", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=1500.0)
     # plot_results(os.path.join(LOGS_DIR_BASE, "ppo"), "PPO Learning Curve")
 
-    # Train A2C Agent
+    # Train A2C Agent (COMMENTED OUT BY DEFAULT)
     # print("\n--- Training A2C Agent ---")
     # train_agent("A2C", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=800.0)
     # plot_results(os.path.join(LOGS_DIR_BASE, "a2c"), "A2C Learning Curve")
 
-    # Train REINFORCE-like Agent (using A2C with n_steps=1)
+    # Train REINFORCE-like Agent (using A2C with n_steps=1) (COMMENTED OUT BY DEFAULT)
     # print("\n--- Training REINFORCE-like Agent ---")
     # train_agent("REINFORCE", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=700.0)
     # plot_results(os.path.join(LOGS_DIR_BASE, "reinforce"), "REINFORCE Learning Curve")
@@ -299,35 +317,37 @@ if __name__ == "__main__":
     # Run this section AFTER all desired agents have been trained and saved.
     # Uncomment ALL the evaluation blocks below to generate videos for all trained models.
 
-    # Evaluate and record DQN agent
+    # Evaluate and record DQN agent (UNCOMMENTED IN THIS VERSION TO GENERATE VIDEO)
     dqn_models_path = os.path.join(MODELS_DIR_BASE, "dqn")
     best_dqn_model_path = os.path.join(dqn_models_path, "best_model.zip") # Default name from EvalCallback
     
+    # This block is now UNCOMMENTED to generate the DQN video.
     if os.path.exists(best_dqn_model_path):
        evaluate_and_record_agent(best_dqn_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="dqn_agent_performance.mp4")
     else:
        print(f"\nNo DQN best model found at {best_dqn_model_path}. Please train it first by uncommenting its train_agent(...) line.")
 
-    # Evaluate and record PPO agent
-    # ppo_models_path = os.path.join(MODELS_DIR_BASE, "ppo")
-    # best_ppo_model_path = os.path.join(ppo_models_path, "best_model.zip")
+    # Evaluate and record PPO agent (COMMENTED OUT BY DEFAULT)
+    ppo_models_path = os.path.join(MODELS_DIR_BASE, "ppo")
+    best_ppo_model_path = os.path.join(ppo_models_path, "best_model.zip")
     # if os.path.exists(best_ppo_model_path):
     #     evaluate_and_record_agent(best_ppo_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="ppo_agent_performance.mp4")
     # else:
     #     print(f"\nNo PPO best model found at {ppo_models_path}. Please train it first by uncommenting its train_agent(...) line.")
 
-    # Evaluate and record A2C agent
-    # a2c_models_path = os.path.join(MODELS_DIR_BASE, "a2c")
-    # best_a2c_model_path = os.path.join(a2c_models_path, "best_model.zip")
+    # Evaluate and record A2C agent (COMMENTED OUT BY DEFAULT)
+    a2c_models_path = os.path.join(MODELS_DIR_BASE, "a2c")
+    best_a2c_model_path = os.path.join(a2c_models_path, "best_model.zip")
     # if os.path.exists(best_a2c_model_path):
     #     evaluate_and_record_agent(best_a2c_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="a2c_agent_performance.mp4")
     # else:
     #     print(f"\nNo A2C best model found at {a2c_models_path}. Please train it first by uncommenting its train_agent(...) line.")
 
-    # Evaluate and record REINFORCE-like Agent (using A2C)
-    # reinforce_models_path = os.path.join(MODELS_DIR_BASE, "reinforce")
-    # best_reinforce_model_path = os.path.join(reinforce_models_path, "best_model.zip")
+    # Evaluate and record REINFORCE-like Agent (using A2C) (COMMENTED OUT BY DEFAULT)
+    reinforce_models_path = os.path.join(MODELS_DIR_BASE, "reinforce")
+    best_reinforce_model_path = os.path.join(reinforce_models_path, "best_model.zip")
     # if os.path.exists(best_reinforce_model_path):
     #     evaluate_and_record_agent(best_reinforce_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="reinforce_agent_performance.mp4")
     # else:
     #     print(f"\nNo REINFORCE best model found at {reinforce_models_path}. Please train it first by uncommenting its train_agent(...) line.")
+
