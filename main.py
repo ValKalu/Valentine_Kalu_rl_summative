@@ -297,15 +297,15 @@ if __name__ == "__main__":
     # train_agent("DQN", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=2000.0) # Adjusted threshold
     # plot_results(os.path.join(LOGS_DIR_BASE, "dqn"), "DQN Learning Curve")
 
-    # Train PPO Agent (COMMENTED OUT BY DEFAULT)
+    # Train PPO Agent (COMMENTED OUT - TRAINING IS COMPLETE)
     # print("\n--- Training PPO Agent ---")
     # train_agent("PPO", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=1500.0)
     # plot_results(os.path.join(LOGS_DIR_BASE, "ppo"), "PPO Learning Curve")
 
-    # Train A2C Agent (COMMENTED OUT BY DEFAULT)
-    # print("\n--- Training A2C Agent ---")
-    # train_agent("A2C", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=800.0)
-    # plot_results(os.path.join(LOGS_DIR_BASE, "a2c"), "A2C Learning Curve")
+    # Train A2C Agent (UNCOMMENTED IN THIS VERSION TO TRAIN A2C)
+    print("\n--- Training A2C Agent ---")
+    train_agent("A2C", CreativeMindAcademyEnv, total_timesteps=200_000, reward_threshold=800.0)
+    plot_results(os.path.join(LOGS_DIR_BASE, "a2c"), "A2C Learning Curve")
 
     # Train REINFORCE-like Agent (using A2C with n_steps=1) (COMMENTED OUT BY DEFAULT)
     # print("\n--- Training REINFORCE-like Agent ---")
@@ -317,23 +317,23 @@ if __name__ == "__main__":
     # Run this section AFTER all desired agents have been trained and saved.
     # Uncomment ALL the evaluation blocks below to generate videos for all trained models.
 
-    # Evaluate and record DQN agent (UNCOMMENTED IN THIS VERSION TO GENERATE VIDEO)
+    # Evaluate and record DQN agent (COMMENTED OUT - ASSUMING VIDEO GENERATION IS COMPLETE)
     dqn_models_path = os.path.join(MODELS_DIR_BASE, "dqn")
     best_dqn_model_path = os.path.join(dqn_models_path, "best_model.zip") # Default name from EvalCallback
     
-    # This block is now UNCOMMENTED to generate the DQN video.
-    if os.path.exists(best_dqn_model_path):
-       evaluate_and_record_agent(best_dqn_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="dqn_agent_performance.mp4")
-    else:
-       print(f"\nNo DQN best model found at {best_dqn_model_path}. Please train it first by uncommenting its train_agent(...) line.")
+    # This block is now COMMENTED OUT as you've already generated the DQN video.
+    # if os.path.exists(best_dqn_model_path):
+    #    evaluate_and_record_agent(best_dqn_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="dqn_agent_performance.mp4")
+    # else:
+    #    print(f"\nNo DQN best model found at {best_dqn_model_path}. Please train it first by uncommenting its train_agent(...) line.")
 
-    # Evaluate and record PPO agent (COMMENTED OUT BY DEFAULT)
+    # Evaluate and record PPO agent (UNCOMMENTED IN THIS VERSION TO GENERATE VIDEO)
     ppo_models_path = os.path.join(MODELS_DIR_BASE, "ppo")
     best_ppo_model_path = os.path.join(ppo_models_path, "best_model.zip")
-    # if os.path.exists(best_ppo_model_path):
-    #     evaluate_and_record_agent(best_ppo_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="ppo_agent_performance.mp4")
-    # else:
-    #     print(f"\nNo PPO best model found at {ppo_models_path}. Please train it first by uncommenting its train_agent(...) line.")
+    if os.path.exists(best_ppo_model_path):
+        evaluate_and_record_agent(best_ppo_model_path, CreativeMindAcademyEnv, n_episodes=3, output_filename="ppo_agent_performance.mp4")
+    else:
+        print(f"\nNo PPO best model found at {ppo_models_path}. Please train it first by uncommenting its train_agent(...) line.")
 
     # Evaluate and record A2C agent (COMMENTED OUT BY DEFAULT)
     a2c_models_path = os.path.join(MODELS_DIR_BASE, "a2c")
